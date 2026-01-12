@@ -3,54 +3,49 @@ import { GoogleGenAI } from "@google/genai";
 import { Business, SearchResult, GroundingChunk } from "../types";
 
 /**
- * Safely retrieves the API key from the environment.
- */
-const getApiKey = (): string => {
-  try {
-    return process.env.API_KEY || "";
-  } catch (e) {
-    console.error("Environment variable process.env.API_KEY is not accessible.");
-    return "";
-  }
-};
-
-/**
  * Searches for businesses in Malaysia using Gemini with Google Search grounding.
  */
 export const findBusinesses = async (industry: string, location: string): Promise<SearchResult> => {
-  const apiKey = getApiKey();
+  const apiKey = process.env.API_KEY;
   
   if (!apiKey) {
-    throw new Error("API Key is missing. Please set the API_KEY environment variable in your deployment settings.");
+    throw new Error("API_KEY is not defined. Please add it to your environment variables.");
   }
 
-  // Initialize client inside the function to ensure the latest key is used.
   const ai = new GoogleGenAI({ apiKey });
   const model = 'gemini-3-flash-preview';
   
-  const queryParts = [];
-  if (industry) queryParts.push(`industry: "${industry}"`);
-  if (location) queryParts.push(`location: "${location}"`);
-  const queryStr = queryParts.join(" and ");
+  const queryStr = [
+    industry ? `industry: ${industry}` : '',
+    location ? `location: ${location}` : ''
+  ].filter(Boolean).join(" and ");
 
   const prompt = `
-    Find a list of real businesses in Malaysia matching: ${queryStr}.
-    Provide details for at least 15-20 businesses if possible.
+    Find a list of real and currently operating businesses in Malaysia for the following criteria: ${queryStr}.
+    I am specifically looking for details on businesses located on this street or in this area.
     
-    For each business, include:
-    1. Name
-    2. Industry
-    3. Phone (with local prefix)
-    4. Full Address
-    5. Email
-    6. Website
+    For each business, provide:
+    1. Legal Name
+    2. Industry Type
+    3. Contact Phone (Must be in Malaysia format, e.g., +60...)
+    4. Exact Mailing Address in Malaysia
+    5. Website URL if available
+    6. Business Email if available
     
-    Return the data as a JSON array in a block:
+    Format the results as a JSON array inside a code block:
     \`\`\`json
     [
-      { "name": "...", "industry": "...", "phone": "...", "address": "...", "email": "...", "website": "..." }
+      { 
+        "name": "Full Business Name", 
+        "industry": "Category", 
+        "phone": "+60...", 
+        "address": "Full Address", 
+        "email": "email@example.com", 
+        "website": "https://..." 
+      }
     ]
     \`\`\`
+    Also provide a brief 2-3 sentence overview of the business landscape in this area at the start of your response.
   `;
 
   try {
@@ -59,12 +54,12 @@ export const findBusinesses = async (industry: string, location: string): Promis
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        temperature: 0.7,
+        temperature: 0.1, // Reduced temperature for more factual responses
       },
     });
 
-    const text = response.text || "No response text found.";
-    const rawChunks = (response.candidates?.[0]?.groundingMetadata?.groundingChunks as any[]) || [];
+    const text = response.text || "";
+    const rawChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const businesses = extractBusinessesFromText(text);
 
     return {
@@ -74,9 +69,6 @@ export const findBusinesses = async (industry: string, location: string): Promis
     };
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    if (error.message?.includes("API key not valid")) {
-      throw new Error("The provided API Key is invalid. Please check your Google AI Studio settings.");
-    }
     throw error;
   }
 };
@@ -88,7 +80,7 @@ function extractBusinessesFromText(text: string): Business[] {
       const parsed = JSON.parse(jsonMatch[1]);
       return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
-      console.warn("JSON parsing failed", e);
+      console.warn("Could not parse business JSON", e);
     }
   }
   return [];
