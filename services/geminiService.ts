@@ -6,12 +6,9 @@ import { Business, SearchResult, GroundingChunk } from "../types";
  * Searches for businesses in Malaysia using Gemini with Google Search grounding.
  */
 export const findBusinesses = async (industry: string, location: string): Promise<SearchResult> => {
-  const apiKey = process.env.API_KEY;
+  // 按照规则，自动使用 process.env.API_KEY
+  const apiKey = process.env.API_KEY || "";
   
-  if (!apiKey) {
-    throw new Error("API_KEY is not defined. Please add it to your environment variables.");
-  }
-
   const ai = new GoogleGenAI({ apiKey });
   const model = 'gemini-3-flash-preview';
   
@@ -54,7 +51,7 @@ export const findBusinesses = async (industry: string, location: string): Promis
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        temperature: 0.1, // Reduced temperature for more factual responses
+        temperature: 0.1,
       },
     });
 
@@ -68,7 +65,10 @@ export const findBusinesses = async (industry: string, location: string): Promis
       sources: rawChunks as GroundingChunk[],
     };
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
+    // 如果没有 API Key 或 Key 无效，抛出更具引导性的错误
+    if (!apiKey || error.message?.includes("401") || error.message?.includes("403")) {
+      throw new Error("API configuration missing or invalid. Please ensure the API_KEY is set in your deployment environment and you have triggered a new deploy.");
+    }
     throw error;
   }
 };
