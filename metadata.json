@@ -1,0 +1,7 @@
+{
+  "name": "Malaysia Business Finder",
+  "description": "Locate businesses, industries, and contact details for any street or area in Malaysia using real-time search data.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
