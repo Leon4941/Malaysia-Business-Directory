@@ -27,8 +27,8 @@ const App: React.FC = () => {
       let msg = err.message || "获取企业信息失败。";
       
       // 针对 API KEY 缺失或配置不同步的引导性提示
-      if (msg.includes("API_KEY") || msg.includes("configuration") || msg.includes("401")) {
-        msg = "API 配置未生效或密钥缺失。\n\n解决办法：\n1. 确保在 Netlify 的 Site Configuration > Build & deploy > Environment variables 中添加了 API_KEY。\n2. 在 Deploys 页面点击 'Trigger deploy' -> 'Deploy project without cache' (清除缓存并重新部署)。";
+      if (msg.includes("API_KEY") || msg.includes("configuration") || msg.includes("401") || msg.includes("missing")) {
+        msg = "API 密钥未生效或配置错误。\n\n请检查：\n1. Netlify 环境变量中是否已添加 API_KEY。\n2. 必须点击 'Deploy project without cache' 重新部署一次。";
       }
       
       setError(msg);
