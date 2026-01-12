@@ -5,12 +5,15 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   define: {
-    // This shims process.env.API_KEY so it's available in the browser.
-    // When deploying to Netlify, ensure you set API_KEY in the environment variables.
+    // This ensures process.env.API_KEY is available in the browser context
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY || '')
   },
   build: {
     outDir: 'dist',
     target: 'esnext'
+  },
+  server: {
+    port: 3000,
+    open: true
   }
 });
