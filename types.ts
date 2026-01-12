@@ -10,12 +10,12 @@ export interface Business {
 
 export interface GroundingChunk {
   web?: {
-    uri: string;
-    title: string;
+    uri?: string;
+    title?: string;
   };
   maps?: {
-    uri: string;
-    title: string;
+    uri?: string;
+    title?: string;
   };
 }
 

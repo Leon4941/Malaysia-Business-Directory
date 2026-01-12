@@ -1,10 +1,15 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Business, SearchResult } from "../types";
+import { Business, SearchResult, GroundingChunk } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-
+/**
+ * Searches for businesses in Malaysia using Gemini with Google Search grounding.
+ * Uses gemini-3-flash-preview for real-time search capabilities.
+ */
 export const findBusinesses = async (industry: string, location: string): Promise<SearchResult> => {
+  // Initialize the GoogleGenAI client with the API key from process.env.
+  // We create a new instance inside the function to ensure it uses the latest key from the context.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const model = 'gemini-3-flash-preview';
   
   const queryParts = [];
@@ -27,10 +32,8 @@ export const findBusinesses = async (industry: string, location: string): Promis
     
     IMPORTANT: 
     - Focus strictly on businesses located in Malaysia.
-    - Present an exhaustive detailed summary in text first, grouped by sub-areas if applicable.
-    - Provide the full structured data for ALL found businesses in a valid JSON array at the end of your response inside a \`\`\`json code block.
+    - Provide the full structured data for ALL found businesses in a valid JSON array inside a \`\`\`json code block.
     - Each JSON object must have fields: "name", "industry", "phone", "address", "email", "website".
-    - If a specific field is not found, use an empty string or null.
   `;
 
   try {
@@ -39,20 +42,22 @@ export const findBusinesses = async (industry: string, location: string): Promis
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        // Increasing temperature slightly can sometimes help with variety, 
-        // but grounding usually works better with lower temperature for accuracy.
         temperature: 0.7,
       },
     });
 
+    // Use the .text property directly (not as a method) to access the generated text content.
     const text = response.text || "No data found.";
-    const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    
+    // Explicitly cast to any[] and then to our local GroundingChunk[] to avoid type definition conflicts 
+    // between the SDK's internal types and our local interface.
+    const rawChunks = (response.candidates?.[0]?.groundingMetadata?.groundingChunks as any[]) || [];
     const businesses = extractBusinessesFromText(text);
 
     return {
       text,
       businesses,
-      sources,
+      sources: rawChunks as GroundingChunk[],
     };
   } catch (error) {
     console.error("Gemini API Error:", error);
@@ -60,6 +65,9 @@ export const findBusinesses = async (industry: string, location: string): Promis
   }
 };
 
+/**
+ * Helper to extract JSON data from the model's text response.
+ */
 function extractBusinessesFromText(text: string): Business[] {
   const jsonMatch = text.match(/```json\s+([\s\S]*?)\s+```/);
   if (jsonMatch) {
