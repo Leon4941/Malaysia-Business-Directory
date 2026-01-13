@@ -5,10 +5,9 @@ import { Business, SearchResult, GroundingChunk } from "../types";
  * 使用 Gemini 和 Google Search Grounding 搜索马来西亚的企业信息。
  */
 export const findBusinesses = async (industry: string, location: string): Promise<SearchResult> => {
-  // 确保 API_KEY 存在
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    throw new Error("API_KEY 环境变量缺失。请在 Netlify 的 Site Configuration 中添加该变量。");
+    throw new Error("MISSING_API_KEY");
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -21,15 +20,13 @@ export const findBusinesses = async (industry: string, location: string): Promis
 
   const prompt = `
     请查找马来西亚真实且正在运营的企业列表。查询条件：${queryStr}。
-    我需要查找位于该街道或地区的详细公司信息。
     
     对于每家公司，请提供：
     1. 法律全称
     2. 行业类型
-    3. 联系电话 (必须是马来西亚格式，例如 +60...)
+    3. 联系电话 (必须是马来西亚格式)
     4. 完整详细地址
     5. 官方网站（如果有）
-    6. 电子邮箱（如果有）
     
     请将结果格式化为代码块中的 JSON 数组：
     \`\`\`json
@@ -39,12 +36,11 @@ export const findBusinesses = async (industry: string, location: string): Promis
         "industry": "行业", 
         "phone": "+60...", 
         "address": "地址", 
-        "email": "邮箱", 
         "website": "网址" 
       }
     ]
     \`\`\`
-    并在回答开头提供一段 2-3 句的关于该地区商业环境的简要概述。
+    并在开头提供 2 句关于该地点的商业简述。
   `;
 
   try {
@@ -68,8 +64,12 @@ export const findBusinesses = async (industry: string, location: string): Promis
     };
   } catch (error: any) {
     console.error("Gemini API Error:", error);
+    // 专门识别 429 错误
+    if (error.message?.includes("429") || error.message?.includes("quota")) {
+      throw new Error("QUOTA_EXHAUSTED");
+    }
     if (error.message?.includes("401") || error.message?.includes("403")) {
-      throw new Error("API 密钥验证失败。请确保 Netlify 环境变量中的 API_KEY 正确无误。");
+      throw new Error("AUTH_FAILED");
     }
     throw error;
   }
@@ -79,10 +79,9 @@ function extractBusinessesFromText(text: string): Business[] {
   const jsonMatch = text.match(/```json\s+([\s\S]*?)\s+```/);
   if (jsonMatch) {
     try {
-      const parsed = JSON.parse(jsonMatch[1]);
-      return Array.isArray(parsed) ? parsed : [];
+      return JSON.parse(jsonMatch[1]);
     } catch (e) {
-      console.warn("Could not parse business JSON", e);
+      return [];
     }
   }
   return [];

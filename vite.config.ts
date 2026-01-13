@@ -9,6 +9,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     target: 'esnext',
-    minify: 'esbuild'
+    minify: 'esbuild',
+    sourcemap: false // 禁用 sourcemap，进一步减少敏感信息泄露的风险
   }
 });
